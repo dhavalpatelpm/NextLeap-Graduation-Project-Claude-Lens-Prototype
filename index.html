@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Lens — AI Output Trust & Evaluation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --claude-orange: #C85A2A;
+    --claude-orange-light: #FFF3EE;
+    --claude-orange-mid: #FFAB91;
+    --bg: #F7F5F2;
+    --surface: #FFFFFF;
+    --surface-2: #F2EDE8;
+    --text-primary: #1A1A1A;
+    --text-secondary: #666;
+    --text-muted: #999;
+    --border: #E5E0DB;
+    --assumption: #E3F0FF;
+    --assumption-border: #90C0F9;
+    --assumption-text: #1045A0;
+    --uncertain: #FFF8E1;
+    --uncertain-border: #FFD54F;
+    --uncertain-text: #E65100;
+    --verify: #FFEBEE;
+    --verify-border: #EF9A9A;
+    --verify-text: #C62828;
+    --success: #E8F5E9;
+    --success-border: #A5D6A7;
+    --success-text: #2E7D32;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP NAV ── */
+  .nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .nav-asterisk {
+    color: var(--claude-orange);
+    font-size: 20px;
+    line-height: 1;
+  }
+  .nav-badge {
+    background: var(--claude-orange-light);
+    color: var(--claude-orange);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--claude-orange-mid);
+    letter-spacing: .02em;
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .nav-tag {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .scenario-btn {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scenario-btn:hover { background: var(--surface-2); color: var(--text-primary); }
+  .scenario-btn.active {
+    background: var(--claude-orange-light);
+    color: var(--claude-orange);
+    font-weight: 600;
+  }
+  .scenario-icon { font-size: 14px; flex-shrink: 0; }
+  .lens-toggle-section {
+    padding: 16px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .toggle-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--claude-orange);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s;
+    border: none;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    right: 2px;
+    transition: right .2s;
+  }
+  .toggle.off { background: var(--border); }
+  .toggle.off::after { right: auto; left: 2px; }
+  .toggle-desc { font-size: 10px; color: var(--text-muted); line-height: 1.5; }
+
+  .research-pill {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 12px;
+  }
+  .rp-title { font-size: 10px; font-weight: 700; color: var(--claude-orange); margin-bottom: 6px; }
+  .rp-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-bottom: 3px;
+  }
+  .rp-dot { color: var(--claude-orange); font-size: 8px; margin-top: 4px; flex-shrink: 0; }
+
+  /* ── MAIN CHAT ── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* USER MESSAGE */
+  .user-msg {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .user-bubble {
+    background: var(--claude-orange);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 16px 4px 16px 16px;
+    max-width: 500px;
+    font-size: 13px;
+    line-height: 1.6;
+    box-shadow: var(--shadow);
+  }
+
+  /* CLAUDE MESSAGE */
+  .claude-msg {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    max-width: 720px;
+  }
+  .claude-avatar {
+    width: 32px;
+    height: 32px;
+    background: var(--text-primary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .claude-content { flex: 1; }
+  .claude-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .claude-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px 16px 16px 16px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+  }
+  .claude-bubble p { margin-bottom: 8px; }
+  .claude-bubble p:last-child { margin-bottom: 0; }
+
+  /* ── LENS PANEL ── */
+  .lens-panel {
+    margin-top: 10px;
+    border: 1.5px solid var(--claude-orange);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 2px 12px rgba(200,90,42,0.1);
+    animation: slideIn .3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .lens-header {
+    background: var(--claude-orange-light);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--claude-orange-mid);
+    cursor: pointer;
+  }
+  .lens-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--claude-orange);
+  }
+  .lens-asterisk { font-size: 14px; }
+  .lens-collapse-btn {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+    transition: color .15s;
+  }
+  .lens-collapse-btn:hover { color: var(--claude-orange); }
+  .lens-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .lens-body.collapsed { display: none; }
+
+  .lens-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    border: 1px solid;
+  }
+  .lens-item.assumption {
+    background: var(--assumption);
+    border-color: var(--assumption-border);
+    color: var(--assumption-text);
+  }
+  .lens-item.uncertain {
+    background: var(--uncertain);
+    border-color: var(--uncertain-border);
+    color: var(--uncertain-text);
+  }
+  .lens-item.verify {
+    background: var(--verify);
+    border-color: var(--verify-border);
+    color: var(--verify-text);
+  }
+  .lens-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .lens-text { flex: 1; }
+  .lens-text strong { font-weight: 700; }
+
+  .lens-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .lens-btn {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Sora', sans-serif;
+    cursor: pointer;
+    transition: all .15s;
+    border: 1.5px solid;
+  }
+  .btn-dismiss {
+    background: white;
+    color: var(--text-secondary);
+    border-color: var(--border);
+  }
+  .btn-dismiss:hover { background: var(--surface-2); }
+  .btn-accept {
+    background: var(--success);
+    color: var(--success-text);
+    border-color: var(--success-border);
+  }
+  .btn-accept:hover { background: #C8E6C9; }
+  .btn-dig {
+    background: var(--claude-orange-light);
+    color: var(--claude-orange);
+    border-color: var(--claude-orange-mid);
+  }
+  .btn-dig:hover { background: #FFE0CC; }
+
+  .lens-confidence {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 2px;
+    padding: 6px 10px;
+    background: var(--surface-2);
+    border-radius: 6px;
+  }
+  .lc-label { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+  .lc-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .lc-item { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+  .lc-item span { color: var(--text-secondary); }
+
+  /* SUCCESS STATE */
+  .success-banner {
+    background: var(--success);
+    border: 1px solid var(--success-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--success-text);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  /* ── INPUT BAR ── */
+  .input-area {
+    padding: 16px 24px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    transition: border-color .2s;
+  }
+  .input-row:focus-within { border-color: var(--claude-orange); }
+  .chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    resize: none;
+    height: 40px;
+    line-height: 1.5;
+  }
+  .chat-input::placeholder { color: var(--text-muted); }
+  .send-btn {
+    width: 36px; height: 36px;
+    background: var(--claude-orange);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { background: #A8481C; }
+  .lens-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--claude-orange);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .lens-status-dot {
+    width: 6px; height: 6px;
+    background: var(--claude-orange);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .rp-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rp-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 10px;
+  }
+  .insight-card {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--claude-orange);
+  }
+  .ic-name { font-size: 10px; font-weight: 700; color: var(--claude-orange); margin-bottom: 3px; }
+  .ic-quote { font-size: 10px; color: var(--text-secondary); line-height: 1.5; font-style: italic; }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--text-secondary); }
+  .stat-value { font-weight: 700; color: var(--claude-orange); }
+  .calibration-bar {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .cal-label { font-size: 10px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+  .cal-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .cal-bar-fill { height: 100%; background: var(--claude-orange); border-radius: 3px; width: 35%; transition: width 1s ease; }
+  .cal-note { font-size: 9px; color: var(--text-muted); margin-top: 4px; }
+
+  /* SCENARIO TAG */
+  .scenario-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--claude-orange-light);
+    color: var(--claude-orange);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--claude-orange-mid);
+    margin-bottom: 8px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">
+    <span class="nav-asterisk">✳</span>
+    Claude
+    <span class="nav-badge">✨ Lens Active</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-tag">NextLeap PM Fellowship · C-45</span>
+    <span class="nav-tag">NL Claude Prototype</span>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Try a Scenario</div>
+      <button class="scenario-btn active" onclick="loadScenario('career')">
+        <span class="scenario-icon">💼</span> Career Prep
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('research')">
+        <span class="scenario-icon">🔬</span> Research Task
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('writing')">
+        <span class="scenario-icon">✍️</span> Content Writing
+      </button>
+      <button class="scenario-btn" onclick="loadScenario('code')">
+        <span class="scenario-icon">💻</span> Code Review
+      </button>
+    </div>
+
+    <div class="lens-toggle-section">
+      <div class="sidebar-label">Claude Lens Settings</div>
+      <div class="toggle-row">
+        <span class="toggle-label">✳ Lens Panel</span>
+        <button class="toggle" id="lensToggle" onclick="toggleLens()"></button>
+      </div>
+      <div class="toggle-desc">Shows assumptions, uncertainty flags, and verify checklist alongside every response.</div>
+
+      <div class="toggle-row" style="margin-top:12px">
+        <span class="toggle-label">📊 Calibration</span>
+        <button class="toggle" id="calToggle" onclick="toggleCal()"></button>
+      </div>
+      <div class="toggle-desc">Tracks your evaluation accuracy and builds your judgment over time.</div>
+
+      <div class="research-pill">
+        <div class="rp-title">📊 Why This Feature</div>
+        <div class="rp-item"><span class="rp-dot">●</span><span>65% reacted positively to this panel · Survey Q15</span></div>
+        <div class="rp-item"><span class="rp-dot">●</span><span>3.80/5 — top trust signal is AI admitting uncertainty</span></div>
+        <div class="rp-item"><span class="rp-dot">●</span><span>0/7 interviewees had a structured evaluation path</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-area">
+    <div class="chat-messages" id="chatMessages">
+
+      <!-- WELCOME MESSAGE -->
+      <div class="claude-msg">
+        <div class="claude-avatar">✳</div>
+        <div class="claude-content">
+          <div class="claude-name">Claude · with Lens</div>
+          <div class="claude-bubble">
+            <p>Hi! I'm Claude with <strong>Claude Lens</strong> enabled — an evaluation layer that shows you what I assumed, where I'm less certain, and what you should verify before using my output.</p>
+            <p>Select a scenario from the sidebar or type your own prompt. I'll respond, and Lens will flag what matters most for you to check.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+      <div class="lens-status">
+        <div class="lens-status-dot"></div>
+        Claude Lens is active — assumptions, uncertainty & verify checklist will appear after each response
+      </div>
+      <div class="input-row">
+        <textarea class="chat-input" id="chatInput" placeholder="Ask Claude anything high-stakes..." rows="1" onkeydown="handleKey(event)"></textarea>
+        <button class="send-btn" onclick="sendMessage()">→</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-section-title">Interview Evidence</div>
+      <div class="insight-card">
+        <div class="ic-name">Meet Patel · Student</div>
+        <div class="ic-quote">"All AI tools have a warning at the bottom. No one sees. Specific inline flagging is what I'd love."</div>
+      </div>
+      <div class="insight-card">
+        <div class="ic-name">Dhairya Mehta · Engineer</div>
+        <div class="ic-quote">"If AI highlights its own flaws, it makes me trust it MORE — because it's being honest."</div>
+      </div>
+      <div class="insight-card">
+        <div class="ic-name">Apoorv · Developer</div>
+        <div class="ic-quote">"Show me the parameters — the evals — it used. Then I can filter and trust it better."</div>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">Survey Stats · n=54</div>
+      <div class="stat-row"><span class="stat-label">Want assumptions shown</span><span class="stat-value">62.5%</span></div>
+      <div class="stat-row"><span class="stat-label">React positively to panel</span><span class="stat-value">65%</span></div>
+      <div class="stat-row"><span class="stat-label">Top trust signal</span><span class="stat-value">AI admits uncertainty</span></div>
+      <div class="stat-row"><span class="stat-label">Trust polish more</span><span class="stat-value">68%</span></div>
+      <div class="stat-row"><span class="stat-label">Copy-paste directly</span><span class="stat-value">30%</span></div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">Your Calibration Score</div>
+      <div class="calibration-bar">
+        <div class="cal-label">Evaluation Skill — Building</div>
+        <div class="cal-bar-bg"><div class="cal-bar-fill" id="calBar"></div></div>
+        <div class="cal-note">Use Lens to verify outputs — your score improves as you engage.</div>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-section-title">Legend</div>
+      <div class="stat-row">
+        <span class="stat-label">📌 Blue — Assumption</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">⚠️ Amber — Less certain</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">🔍 Red — Verify this</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">✳ Orange — Lens active</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let lensOn = true;
+  let calOn = true;
+  let currentScenario = 'career';
+  let calScore = 35;
+
+  const scenarios = {
+    career: {
+      prompt: "Write a cover letter for a Senior Product Manager role at a fintech startup. I have 3 years of experience.",
+      response: `Here's a tailored cover letter for the Senior PM role at your target fintech startup:
+
+Dear Hiring Manager,
+
+I am excited to apply for the Senior Product Manager position. With 3 years of product management experience, I have developed a strong foundation in cross-functional leadership, data-driven decision making, and user-centric product development.
+
+In my current role, I have successfully led product initiatives from 0 to 1, collaborating with engineering, design, and business stakeholders to deliver measurable outcomes. My experience with fintech products gives me a unique understanding of the regulatory landscape and user trust challenges inherent in financial services.
+
+I am particularly drawn to your company's mission and believe my background in building scalable, trustworthy products aligns well with your growth stage.
+
+Looking forward to discussing how I can contribute to your team.`,
+      lens: {
+        assumptions: [
+          { text: "I assumed your 3 years of experience includes cross-functional team leadership. If you've been more individual-contributor focused, this letter overstates your scope." },
+          { text: "I assumed 'fintech startup' means Series A-C stage. If earlier or later stage, the tone and emphasis should shift significantly." }
+        ],
+        uncertain: [
+          { text: "'Data-driven decision making' is generic — I'm less certain this differentiates you. Most PM candidates claim this. Do you have specific metrics to share?" },
+          { text: "The phrase 'unique understanding of regulatory landscape' is a claim I can't verify without knowing your actual domain experience in fintech." }
+        ],
+        verify: [
+          { text: "Check the JD for specific tech stack or domain requirements (payments, lending, crypto) — I may have missed key requirements." },
+          { text: "Verify: Does the company's mission actually match what you wrote here? I generated a generic mission reference that may not apply." }
+        ]
+      }
+    },
+    research: {
+      prompt: "Summarise the key reasons why AI adoption in Indian enterprises is growing rapidly in 2025.",
+      response: `AI adoption in Indian enterprises is accelerating in 2025 for several key reasons:
+
+1. Cost efficiency: AI tools significantly reduce operational costs, particularly in customer service and back-office operations, which is critical for Indian enterprises operating on thin margins.
+
+2. Government push: India's Digital India initiative and AI Mission have created a favourable policy environment, with significant funding allocated to AI infrastructure.
+
+3. Talent availability: India has one of the largest pools of AI and ML engineers globally, making implementation more feasible and cost-effective than in other markets.
+
+4. Mobile-first user base: India's 800M+ smartphone users create ideal conditions for AI-powered mobile applications across sectors.
+
+5. Competitive pressure: Global competition is forcing Indian companies to adopt AI for operational efficiency and product innovation.`,
+      lens: {
+        assumptions: [
+          { text: "This summary is based on my training data up to early 2025. Specific statistics (800M+ users, funding figures) may have changed — verify with current sources." },
+          { text: "I assumed 'Indian enterprises' means mid-to-large organisations. SMB adoption trends may differ significantly." }
+        ],
+        uncertain: [
+          { text: "The 'Government push' section references India's AI Mission — I'm less certain about the exact current funding allocation. This should be verified with official government sources." },
+          { text: "Claim that India has 'one of the largest pools of AI engineers' is approximate — I don't have a precise ranking or current data to confirm this." }
+        ],
+        verify: [
+          { text: "Verify the 800M+ smartphone figure with current TRAI or GSMA data — this was accurate as of late 2024 but may have changed." },
+          { text: "Cross-check government AI Mission funding details with Press Information Bureau or NASSCOM 2025 reports." }
+        ]
+      }
+    },
+    writing: {
+      prompt: "Write a LinkedIn post announcing that I'm launching a PM newsletter focused on AI product strategy.",
+      response: `🚀 Excited to announce the launch of my new newsletter — [Newsletter Name]!
+
+For the past few years, I've been obsessed with one question: How do we build AI products that people actually trust?
+
+Every week, I'll be breaking down:
+→ Real AI product teardowns from the best teams globally
+→ Frameworks for evaluating AI output quality
+→ Honest takes on what's working (and what's not) in AI product strategy
+
+This is for PMs, founders, and anyone building at the intersection of AI and human judgment.
+
+If you're navigating the chaos of AI product development and want a clear, opinionated perspective — this is for you.
+
+🔔 Link in comments. Would love to have you on this journey.
+
+What's the ONE thing you wish you knew before building your first AI product? Drop it below 👇`,
+      lens: {
+        assumptions: [
+          { text: "I used a placeholder '[Newsletter Name]' — you need to fill this with your actual newsletter name before posting." },
+          { text: "I assumed you want a professional-inspirational tone. If your audience is more technical or casual, this tone should be adjusted." }
+        ],
+        uncertain: [
+          { text: "The hook 'For the past few years' — I'm uncertain of your actual timeline. Make sure this matches your real experience to maintain credibility." },
+          { text: "'Honest takes' and 'opinionated perspective' positions you as a thought leader — verify this aligns with how you want to be perceived professionally." }
+        ],
+        verify: [
+          { text: "Check: Does the content promise match what you're actually able to deliver weekly? Over-promising in a launch post can hurt retention." },
+          { text: "The CTA 'Link in comments' — make sure your newsletter signup link is ready before posting. Don't post without the actual link." }
+        ]
+      }
+    },
+    code: {
+      prompt: "Review this Python function and tell me if it's production-ready: def get_user(id): return db.query('SELECT * FROM users WHERE id=' + str(id))",
+      response: `This function has a critical security vulnerability and is NOT production-ready.
+
+**Critical Issue — SQL Injection:**
+The code directly concatenates user input into the SQL query string. This allows an attacker to manipulate the query by passing malicious input like \`id = "1 OR 1=1"\`, potentially exposing your entire users table.
+
+**Fixed Version:**
+\`\`\`python
+def get_user(user_id: int) -> dict | None:
+    return db.query(
+        'SELECT * FROM users WHERE id = ?',
+        (user_id,)
+    )
+\`\`\`
+
+**Additional issues to address:**
+- No input validation or type checking
+- Returns all columns (SELECT *) — expose only what's needed
+- No error handling for database failures
+- No logging for audit trail
+- Missing return type annotation`,
+      lens: {
+        assumptions: [
+          { text: "I assumed 'db.query()' is a parameterised query method that accepts positional arguments. Verify this matches your actual database driver's API." },
+          { text: "I assumed you're using a relational database. If using an ORM like SQLAlchemy, the recommended fix looks different." }
+        ],
+        uncertain: [
+          { text: "The '?' placeholder syntax works for SQLite and MySQL. For PostgreSQL, use '%s' instead — I'm uncertain which you're using." },
+          { text: "I flagged SELECT * as a concern, but I'm less certain about the performance impact without knowing your users table schema size." }
+        ],
+        verify: [
+          { text: "Run a security scan with bandit (pip install bandit) to catch any other injection vulnerabilities I may have missed." },
+          { text: "Verify your database driver's parameterisation syntax matches the fix I provided — incorrect syntax could fail silently." }
+        ]
+      }
+    }
+  };
+
+  function loadScenario(key) {
+    currentScenario = key;
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    event.target.closest('.scenario-btn').classList.add('active');
+
+    const sc = scenarios[key];
+    document.getElementById('chatInput').value = sc.prompt;
+    document.getElementById('chatInput').focus();
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function toggleLens() {
+    lensOn = !lensOn;
+    const btn = document.getElementById('lensToggle');
+    btn.classList.toggle('off', !lensOn);
+  }
+
+  function toggleCal() {
+    calOn = !calOn;
+    const btn = document.getElementById('calToggle');
+    btn.classList.toggle('off', !calOn);
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const messages = document.getElementById('chatMessages');
+    const sc = scenarios[currentScenario] || null;
+
+    // User message
+    const userDiv = document.createElement('div');
+    userDiv.className = 'user-msg';
+    userDiv.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    messages.appendChild(userDiv);
+    input.value = '';
+
+    // Typing indicator
+    const typing = document.createElement('div');
+    typing.className = 'claude-msg';
+    typing.innerHTML = `
+      <div class="claude-avatar">✳</div>
+      <div class="claude-content">
+        <div class="claude-name">Claude · thinking...</div>
+        <div class="claude-bubble" style="color:var(--text-muted);font-style:italic">Generating response...</div>
+      </div>`;
+    messages.appendChild(typing);
+    messages.scrollTop = messages.scrollHeight;
+
+    setTimeout(() => {
+      messages.removeChild(typing);
+
+      const responseText = sc ? sc.response : "Thank you for your message. I've analysed your request and prepared a detailed response. Please review the Claude Lens panel below to understand what I assumed, where I'm less certain, and what you should verify before acting on this output.";
+      const lensData = sc ? sc.lens : {
+        assumptions: [{ text: "I made some assumptions about your context that may affect the accuracy of this response." }],
+        uncertain: [{ text: "Some claims in this response are based on limited information — verify before using." }],
+        verify: [{ text: "Cross-check key facts with primary sources before relying on this output." }]
+      };
+
+      const claudeDiv = document.createElement('div');
+      claudeDiv.className = 'claude-msg';
+
+      const scenarioLabels = { career: '💼 Career Prep', research: '🔬 Research', writing: '✍️ Content Writing', code: '💻 Code Review' };
+
+      let lensHTML = '';
+      if (lensOn) {
+        const assumptionsHTML = lensData.assumptions.map(a => `
+          <div class="lens-item assumption">
+            <span class="lens-icon">📌</span>
+            <div class="lens-text"><strong>Assumption:</strong> ${a.text}</div>
+          </div>`).join('');
+
+        const uncertainHTML = lensData.uncertain.map(u => `
+          <div class="lens-item uncertain">
+            <span class="lens-icon">⚠️</span>
+            <div class="lens-text"><strong>Less certain:</strong> ${u.text}</div>
+          </div>`).join('');
+
+        const verifyHTML = lensData.verify.map(v => `
+          <div class="lens-item verify">
+            <span class="lens-icon">🔍</span>
+            <div class="lens-text"><strong>Verify this:</strong> ${v.text}</div>
+          </div>`).join('');
+
+        lensHTML = `
+          <div class="lens-panel" id="lensPanel_${Date.now()}">
+            <div class="lens-header" onclick="togglePanel(this)">
+              <div class="lens-header-left">
+                <span class="lens-asterisk">✳</span>
+                Claude Lens — Reasoning Transparency
+              </div>
+              <button class="lens-collapse-btn">▼ collapse</button>
+            </div>
+            <div class="lens-body">
+              ${assumptionsHTML}
+              ${uncertainHTML}
+              ${verifyHTML}
+              <div class="lens-confidence">
+                <span class="lc-label">Confidence key:</span>
+                <div class="lc-item"><div class="lc-dot" style="background:var(--assumption-border)"></div><span>Assumption</span></div>
+                <div class="lc-item"><div class="lc-dot" style="background:var(--uncertain-border)"></div><span>Uncertain</span></div>
+                <div class="lc-item"><div class="lc-dot" style="background:var(--verify-border)"></div><span>Verify</span></div>
+              </div>
+              <div class="lens-actions">
+                <button class="lens-btn btn-dismiss" onclick="dismissLens(this)">Dismiss Lens</button>
+                <button class="lens-btn btn-accept" onclick="acceptOutput(this)">✓ Looks good</button>
+                <button class="lens-btn btn-dig" onclick="digDeeper(this)">⊕ Dig deeper</button>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      claudeDiv.innerHTML = `
+        <div class="claude-avatar">✳</div>
+        <div class="claude-content">
+          <div class="claude-name">Claude · with Lens</div>
+          <div class="scenario-tag">
+            ${scenarioLabels[currentScenario] || '💬 Response'}
+          </div>
+          <div class="claude-bubble">
+            ${formatResponse(responseText)}
+          </div>
+          ${lensHTML}
+        </div>`;
+
+      messages.appendChild(claudeDiv);
+      messages.scrollTop = messages.scrollHeight;
+
+      if (calOn) {
+        calScore = Math.min(calScore + 8, 95);
+        const bar = document.getElementById('calBar');
+        if (bar) bar.style.width = calScore + '%';
+      }
+    }, 1200);
+  }
+
+  function togglePanel(header) {
+    const body = header.nextElementSibling;
+    const btn = header.querySelector('.lens-collapse-btn');
+    body.classList.toggle('collapsed');
+    btn.textContent = body.classList.contains('collapsed') ? '▶ expand' : '▼ collapse';
+  }
+
+  function dismissLens(btn) {
+    btn.closest('.lens-panel').style.opacity = '0.4';
+    btn.closest('.lens-panel').style.pointerEvents = 'none';
+  }
+
+  function acceptOutput(btn) {
+    const panel = btn.closest('.lens-panel');
+    panel.style.borderColor = 'var(--success-border)';
+    panel.style.background = 'var(--success)';
+    const actions = btn.closest('.lens-actions');
+    actions.innerHTML = '<div class="success-banner">✅ Output accepted — calibration updated</div>';
+    if (calOn) {
+      calScore = Math.min(calScore + 5, 95);
+      const bar = document.getElementById('calBar');
+      if (bar) bar.style.width = calScore + '%';
+    }
+  }
+
+  const digDeeperData = {
+    career: {
+      title: "Claude needs a bit more context to refine this for you",
+      subtitle: "Answer one question to get a sharper, more accurate cover letter:",
+      questions: [
+        {
+          q: "Do you have specific metrics from your past roles?",
+          options: ["Yes — I have numbers like 20% retention lift", "No — mostly qualitative impact", "Some — I can dig them up"],
+          responses: {
+            "Yes — I have numbers like 20% retention lift": "Great — I've updated the letter to anchor your leadership claims with measurable outcomes. Metrics make you 3x more credible than generic claims. The 'data-driven' line is now replaced with a specific achievement hook. ✅",
+            "No — mostly qualitative impact": "Noted — I've reframed the letter around your strategic thinking and cross-functional influence rather than numbers. This is honest and still compelling for an early-stage fintech startup.",
+            "Some — I can dig them up": "I've left placeholders [METRIC] in two key spots. Fill these in before sending — even rough numbers (e.g., 'reduced review cycle from 2 weeks to 3 days') matter more than polished prose."
+          }
+        },
+        {
+          q: "Which fintech domain is this role in?",
+          options: ["Payments & transactions", "Lending / credit", "Crypto / DeFi", "Neo-banking / consumer finance"],
+          responses: {
+            "Payments & transactions": "Refocused your letter around transaction reliability, fraud prevention awareness, and user trust — the core themes that payments PMs care about most.",
+            "Lending / credit": "Updated to emphasise credit underwriting context, regulatory awareness, and user-centric loan product design — language that resonates in lending.",
+            "Crypto / DeFi": "Reframed around decentralised product thinking, community-driven roadmaps, and trust-without-intermediary — key for crypto PM roles.",
+            "Neo-banking / consumer finance": "Adjusted tone to emphasise retention, daily active engagement, and financial wellbeing — what neo-banking PMs actually get measured on."
+          }
+        }
+      ]
+    },
+    research: {
+      title: "Help Claude give you more accurate research",
+      subtitle: "One clarification will significantly improve the summary quality:",
+      questions: [
+        {
+          q: "What will you use this research for?",
+          options: ["Executive presentation / pitch deck", "Academic report with citations", "Internal strategy memo", "LinkedIn post or article"],
+          responses: {
+            "Executive presentation / pitch deck": "Refocused the summary to 3 headline findings with supporting data — optimised for slide format. Removed nuance that slows down exec audiences. Added a 'so what' for each point.",
+            "Academic report with citations": "Added citation markers [1][2][3] next to key claims. I've flagged which stats need primary source verification — these are the ones most likely to be challenged in peer review.",
+            "Internal strategy memo": "Restructured as: Situation → Implication → Recommendation. This is the format that gets read and acted on in corporate settings. Key caveat: verify 2 of the 5 stats with live data.",
+            "LinkedIn post or article": "Condensed to 3 punchy insights with a hook opener. Removed the caveats that kill engagement — but please verify the stat you use as your headline number before posting."
+          }
+        },
+        {
+          q: "How current does your data need to be?",
+          options: ["As recent as possible — 2025 only", "2024-2025 is fine", "Historical trends matter more", "I'll verify dates myself"],
+          responses: {
+            "As recent as possible — 2025 only": "⚠️ Flagged: 2 of the 5 claims I made are from 2024 datasets. I've marked them clearly. Please verify with NASSCOM 2025 report and TRAI Q1 2025 data before using.",
+            "2024-2025 is fine": "Good — all my claims fall within this window. The smartphone user figure (800M+) and AI Mission funding reference are both from 2024 verified sources.",
+            "Historical trends matter more": "Refocused on the 3-year trend (2022-2025) which shows a cleaner acceleration story. This is more defensible than snapshot statistics.",
+            "I'll verify dates myself": "Noted — I've added [DATE TO VERIFY] markers next to each statistic. Treat everything as directionally correct but verify before citing formally."
+          }
+        }
+      ]
+    },
+    writing: {
+      title: "Let Claude sharpen this post for your audience",
+      subtitle: "One answer will make this significantly more targeted:",
+      questions: [
+        {
+          q: "Who is your primary LinkedIn audience?",
+          options: ["PMs and product people", "Founders and startup folks", "Executives and decision makers", "Students and early-career folks"],
+          responses: {
+            "PMs and product people": "Rewritten with PM-native language — frameworks, roadmaps, north star metrics. Your audience will recognise the vocabulary and trust you faster.",
+            "Founders and startup folks": "Shifted the hook to founder pain: 'building AI products without knowing if users trust the output.' This speaks directly to the ship-fast-and-break-things crowd.",
+            "Executives and decision makers": "Reframed around business risk — 'your teams are using AI outputs you can't evaluate.' Executives respond to risk and competitive positioning, not tactical PM content.",
+            "Students and early-career folks": "Softened the tone to be more inclusive and less insider. Added 'you don't need 5 years of experience to think like a product strategist' — this gets shares from students."
+          }
+        },
+        {
+          q: "What's your #1 goal for this post?",
+          options: ["Get newsletter subscribers", "Build thought leadership", "Get recruiter attention", "Start a conversation in comments"],
+          responses: {
+            "Get newsletter subscribers": "Added a stronger, more specific CTA: 'If you've ever copy-pasted an AI output into real work — this newsletter is for you.' Specificity converts better than generic CTAs.",
+            "Build thought leadership": "Strengthened the opening contrarian hook: 'Everyone talks about AI productivity. Nobody talks about what happens when AI is confidently wrong.' This positions you as a critical thinker.",
+            "Get recruiter attention": "Added subtle signal of PM rigour — user research, hypothesis validation, and framework thinking. Recruiters scan for these keywords in PM content.",
+            "Start a conversation in comments": "Changed the closing question to: 'What's the most wrong an AI has been for you — and did you catch it in time?' This is more emotionally charged and gets real responses."
+          }
+        }
+      ]
+    },
+    code: {
+      title: "Claude needs one clarification to give you the right fix",
+      subtitle: "This affects the syntax and approach of the solution:",
+      questions: [
+        {
+          q: "Which database are you using?",
+          options: ["SQLite", "MySQL / MariaDB", "PostgreSQL", "I'm using an ORM (SQLAlchemy / Django)"],
+          responses: {
+            "SQLite": "The fix I gave you (using ?) is correct for SQLite. Also added: SQLite's WAL mode recommendation for production, and a connection pool warning if you're running concurrent users.",
+            "MySQL / MariaDB": "Updated — MySQL also uses ? for parameterisation, so the fix syntax is correct. Additionally flagged: MySQL's SQL_MODE setting can silently ignore injection attempts in some configs. Verify yours.",
+            "PostgreSQL": "⚠️ Important fix: PostgreSQL uses %s not ? for parameterisation. Updated the code: db.query('SELECT * FROM users WHERE id = %s', (user_id,)). The ? version would throw a syntax error.",
+            "I'm using an ORM (SQLAlchemy / Django)": "Different approach entirely. With SQLAlchemy: session.query(User).filter(User.id == user_id).first(). With Django ORM: User.objects.get(id=user_id). Both handle injection automatically — no raw SQL needed."
+          }
+        },
+        {
+          q: "What's your production environment?",
+          options: ["Single server, low traffic", "Multi-server, high concurrency", "Serverless / Lambda functions", "Docker / Kubernetes"],
+          responses: {
+            "Single server, low traffic": "The fix is sufficient. Additionally recommend: adding basic rate limiting to the endpoint, and logging failed queries for audit — both simple to add at this scale.",
+            "Multi-server, high concurrency": "Added connection pooling recommendation — your db.query() call needs a pool manager (e.g., PgBouncer or SQLAlchemy's pool) or you'll hit connection limits under load.",
+            "Serverless / Lambda functions": "Critical flag: serverless functions create a new DB connection on every invocation. Add connection reuse via RDS Proxy or a persistent connection layer — otherwise this will be slow and expensive.",
+            "Docker / Kubernetes": "Added: ensure your DB credentials are in environment variables (not hardcoded), use Kubernetes Secrets, and rotate them regularly. The injection fix is correct but credentials exposure is your next risk."
+          }
+        }
+      ]
+    }
+  };
+
+  function digDeeper(btn) {
+    const panel = btn.closest('.lens-panel');
+    const body = panel.querySelector('.lens-body');
+    const actions = body.querySelector('.lens-actions');
+
+    // Disable the button
+    btn.disabled = true;
+    btn.textContent = '⏳ Loading...';
+
+    const data = digDeeperData[currentScenario];
+    const questionSet = data.questions[Math.floor(Math.random() * data.questions.length)];
+
+    setTimeout(() => {
+      btn.textContent = '⊕ Digging deeper';
+
+      // Build the dig deeper panel
+      const digPanel = document.createElement('div');
+      digPanel.style.cssText = `
+        margin-top: 8px;
+        border: 1.5px solid var(--assumption-border);
+        border-radius: 10px;
+        overflow: hidden;
+        animation: slideIn .3s ease;
+      `;
+
+      digPanel.innerHTML = `
+        <div style="background:var(--assumption);padding:10px 14px;border-bottom:1px solid var(--assumption-border)">
+          <div style="font-size:11px;font-weight:700;color:var(--assumption-text);margin-bottom:2px">💡 ${data.title}</div>
+          <div style="font-size:10px;color:#555">${data.subtitle}</div>
+        </div>
+        <div style="padding:12px 14px;background:#fff">
+          <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:8px">❓ ${questionSet.q}</div>
+          <div class="dig-options" style="display:flex;flex-direction:column;gap:5px">
+            ${questionSet.options.map(opt => `
+              <button onclick="selectDigOption(this, '${opt.replace(/'/g, "\\'")}', ${JSON.stringify(questionSet.responses).replace(/"/g, '&quot;')})"
+                style="text-align:left;padding:8px 12px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-family:Sora,sans-serif;cursor:pointer;color:var(--text-primary);transition:all .15s;font-weight:500"
+                onmouseover="this.style.borderColor='var(--assumption-border)';this.style.background='var(--assumption)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
+                ${opt}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      body.insertBefore(digPanel, actions);
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 600);
+  }
+
+  // Full refined responses for each scenario + option
+  const refinedResponses = {
+    career: {
+      "Yes — I have numbers like 20% retention lift": {
+        response: `Here's your **refined cover letter** — anchored with measurable outcomes:
+
+Dear Hiring Manager,
+
+I am excited to apply for the Senior Product Manager position. With 3 years of PM experience, I've delivered measurable results: **[your metric, e.g. increased user retention by 20%, reduced onboarding time by 35%]** — outcomes driven by cross-functional leadership and data-informed decisions.
+
+At my current role, I led end-to-end product initiatives in fast-paced environments, working across engineering, design, and business teams to ship features that moved key metrics. My experience with financial products gives me direct exposure to user trust challenges in regulated environments.
+
+I'm drawn to your growth stage and believe strong, metrics-backed product thinking is exactly what scaling fintech teams need.
+
+Looking forward to sharing specifics on my impact.`,
+        lens: {
+          assumptions: ["I've left [your metric] as a placeholder — fill in your real number before sending. Even approximate figures (35% faster) are far more credible than generic claims."],
+          uncertain: [],
+          verify: ["Double-check the metric you insert matches the JD's priorities — retention matters more in consumer apps, speed matters more in B2B."]
+        }
+      },
+      "No — mostly qualitative impact": {
+        response: `Here's your **reframed cover letter** — built around strategic influence, not numbers:
+
+Dear Hiring Manager,
+
+I am excited to apply for the Senior PM role. With 3 years of experience, I've built a track record of making complex decisions with incomplete data, rallying cross-functional teams around a clear vision, and shipping products that users actually wanted.
+
+My strength lies in qualitative leadership — understanding user behaviour deeply, translating ambiguous problems into clear roadmaps, and building trust with both engineers and executives. In fintech, where user confidence is the product, this kind of judgment-driven PM thinking matters as much as A/B test results.
+
+I would love to bring this approach to your team.`,
+        lens: {
+          assumptions: ["Qualitative framing is valid — but if the JD mentions 'data-driven', add even one informal metric (e.g., 'users told us X in 12 interviews') to signal analytical thinking."],
+          uncertain: ["Some fintech PMs roles weight quantitative skills heavily — check the JD for keywords like 'SQL', 'analytics', or 'experimentation'."],
+          verify: []
+        }
+      },
+      "Some — I can dig them up": {
+        response: `Here's your cover letter with **[METRIC] placeholders** ready for you to fill:
+
+Dear Hiring Manager,
+
+I am excited to apply for the Senior PM role. With 3 years of product management experience, I have delivered tangible outcomes: **[METRIC 1 — e.g. improved activation rate by X%]** and **[METRIC 2 — e.g. shipped X features in Y months]** — results driven by structured thinking and close collaboration with engineering and design.
+
+My fintech exposure has given me firsthand understanding of the trust and compliance dynamics that shape product decisions in this space.
+
+I look forward to connecting.`,
+        lens: {
+          assumptions: [],
+          uncertain: ["[METRIC 1] and [METRIC 2] are placeholders — don't send without filling these in. Even rough numbers beat no numbers."],
+          verify: ["Spend 10 minutes before sending to pull 1-2 real figures from your work history. Check Jira, release notes, or your last perf review."]
+        }
+      }
+    },
+    research: {
+      "Executive presentation / pitch deck": {
+        response: `**Refined: Executive-ready AI adoption summary (3 headline findings)**
+
+**Finding 1 — Cost is the #1 driver**
+Indian enterprises are adopting AI primarily for cost reduction in customer service and back-office operations — not innovation. This is a short-term efficiency play, not a transformation story yet.
+
+**Finding 2 — Government tailwind is real but uneven**
+India's AI Mission has created policy momentum, but implementation lags. Large enterprises benefit; SMBs are largely untouched. The headline numbers overstate actual enterprise-wide penetration.
+
+**Finding 3 — Talent is the moat**
+India's engineering talent pool is the sustainable advantage. Unlike capital or policy, this compounds — and it's why global AI companies are expanding India R&D centres faster than local adoption would suggest.
+
+**So what:** The adoption story is real, but the inflection point is 2026-27, not 2025.`,
+        lens: {
+          assumptions: ["Audience is C-suite or senior leadership — if this is for a board, add competitor benchmarks (China, US)."],
+          uncertain: [],
+          verify: ["'AI Mission implementation lags' is my inference from public data — verify with a NASSCOM 2025 or McKinsey India report for a citable source."]
+        }
+      },
+      "Academic report with citations": {
+        response: `**Refined: Research summary with citation markers**
+
+AI adoption in Indian enterprises is accelerating in 2025 across five documented drivers:
+
+1. **Cost efficiency** — AI tools reduce operational costs by 20-40% in customer service functions [1: NASSCOM AI Adoption Report 2024]. This is particularly significant for Indian enterprises operating on thin margins.
+
+2. **Government policy** — India's National AI Mission allocated ₹10,372 crore for AI infrastructure [2: PIB, Jan 2025 — VERIFY current figure]. This has created favourable conditions for enterprise deployment.
+
+3. **Talent availability** — India produces approximately 1.5M STEM graduates annually, with AI/ML specialisation growing at 35% YoY [3: AICTE Annual Report 2024 — VERIFY].
+
+4. **Mobile infrastructure** — 820M+ smartphone users [4: TRAI Q3 2024] create deployment-ready infrastructure for AI-powered mobile applications.
+
+5. **Competitive pressure** — 67% of Indian CXOs cite competitor AI adoption as a primary driver [5: Deloitte India CXO Survey 2024 — VERIFY availability].`,
+        lens: {
+          assumptions: ["All [VERIFY] markers indicate stats I'm less certain about — check the cited source before submitting."],
+          uncertain: ["The ₹10,372 crore figure may have been updated in Budget 2025 — confirm with latest PIB release."],
+          verify: []
+        }
+      }
+    },
+    writing: {
+      "PMs and product people": {
+        response: `**Refined LinkedIn post — PM-native language, sharper hook:**
+
+🚀 I've spent 3 years building products. The hardest problem isn't roadmaps, stakeholders, or prioritisation.
+
+It's this: **how do you know when to trust AI output — and when to not?**
+
+Launching **[Newsletter Name]** — a weekly breakdown for PMs who use AI seriously:
+
+→ Teardowns of how top product teams evaluate AI outputs (not just generate them)
+→ The trust frameworks no one is teaching
+→ Honest takes: when AI helps, when it hallucinates, and how to tell the difference
+
+If you've ever shipped something based on AI output and wondered "was that actually right?" — this is for you.
+
+🔔 Link in comments. Built for PMs, by a PM.
+
+**What's your process for evaluating AI outputs before using them in your work?** 👇`,
+        lens: {
+          assumptions: [],
+          uncertain: ["The hook assumes your audience struggles with AI trust — if your followers are mostly AI skeptics, flip to 'I used to distrust AI. Here's what changed.'"],
+          verify: ["Make sure [Newsletter Name] is filled before posting."]
+        }
+      },
+      "Founders and startup folks": {
+        response: `**Refined post — founder pain language:**
+
+Most founders I talk to have the same problem.
+
+They're using AI to move faster. But they have no idea if the output is actually right.
+
+Launching **[Newsletter Name]** — for founders building AI products or using AI to run their company:
+
+→ How to evaluate AI output quality (not just generate it faster)
+→ Real teardowns: what great AI product teams actually check before shipping
+→ The trust gap in AI — and how the best teams are closing it
+
+If you've ever shipped a feature, sent a proposal, or made a decision based on AI output — and later wondered if it was wrong — this newsletter is for you.
+
+Link in comments.
+
+**What's your current process for verifying AI outputs before acting on them?** 👇`,
+        lens: {
+          assumptions: ["Assumes founders are experiencing the AI trust problem personally — validate this is true for your audience before posting."],
+          uncertain: [],
+          verify: ["Check your follower demographics — if mostly employees (not founders), revert to the PM-native version."]
+        }
+      }
+    },
+    code: {
+      "PostgreSQL": {
+        response: `**Refined fix — PostgreSQL syntax:**
+
+\`\`\`python
+# ❌ ORIGINAL — SQL Injection vulnerability
+def get_user(id):
+    return db.query('SELECT * FROM users WHERE id=' + str(id))
+
+# ✅ FIXED — PostgreSQL uses %s (NOT ? like SQLite/MySQL)
+def get_user(user_id: int) -> dict | None:
+    try:
+        result = db.query(
+            'SELECT id, name, email FROM users WHERE id = %s',
+            (user_id,)
+        )
+        return result.fetchone()
+    except Exception as e:
+        logger.error(f"DB query failed for user_id={user_id}: {e}")
+        return None
+\`\`\`
+
+**What changed and why:**
+- Used %s parameterisation (PostgreSQL standard — ? would throw a syntax error)
+- SELECT specific columns, not * (avoids exposing passwords, tokens, etc.)
+- Added try/except with structured logging (production requirement)
+- Return None explicitly on failure (prevents silent errors downstream)
+- Type hints added (int input, dict or None output)`,
+        lens: {
+          assumptions: ["Using psycopg2 or asyncpg as the driver — if you're using SQLAlchemy, the ORM approach is cleaner: session.query(User).filter(User.id == user_id).first()"],
+          uncertain: [],
+          verify: ["Run: pip install bandit && bandit -r your_file.py to catch any other injection points I may have missed."]
+        }
+      },
+      "I'm using an ORM (SQLAlchemy / Django)": {
+        response: `**Refined fix — ORM approach (no raw SQL needed):**
+
+\`\`\`python
+# ❌ ORIGINAL — Raw SQL with injection risk (unnecessary with an ORM)
+def get_user(id):
+    return db.query('SELECT * FROM users WHERE id=' + str(id))
+
+# ✅ SQLAlchemy ORM — injection-safe by default
+def get_user(user_id: int) -> User | None:
+    try:
+        return db.session.get(User, user_id)
+    except SQLAlchemyError as e:
+        logger.error(f"Failed to fetch user {user_id}: {e}")
+        return None
+
+# ✅ Django ORM — also injection-safe
+def get_user(user_id: int) -> User | None:
+    try:
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return None
+\`\`\`
+
+**Why ORMs are safer:**
+The ORM layer handles parameterisation automatically — you never write raw SQL strings with user input. This eliminates the entire class of injection vulnerabilities at the architecture level, not just the function level.
+
+**Additional production concerns:**
+- Add @login_required or equivalent permission check before this function
+- Log access attempts for audit trail (especially for sensitive user data)
+- Consider rate limiting if this endpoint is user-facing`,
+        lens: {
+          assumptions: [],
+          uncertain: ["'db.session.get()' is SQLAlchemy 1.4+. If using an older version, use db.session.query(User).get(user_id) instead."],
+          verify: ["Verify your ORM version with: python -c \"import sqlalchemy; print(sqlalchemy.__version__)\""]
+        }
+      }
+    }
+  };
+
+  function selectDigOption(btn, selectedOption, responsesStr) {
+    const container = btn.parentElement;
+
+    // Lock all options — highlight selected
+    container.querySelectorAll('button').forEach(b => {
+      b.disabled = true;
+      b.style.opacity = '0.4';
+      b.style.cursor = 'default';
+    });
+    btn.style.opacity = '1';
+    btn.style.background = 'var(--assumption)';
+    btn.style.borderColor = 'var(--assumption-border)';
+    btn.style.color = 'var(--assumption-text)';
+    btn.style.fontWeight = '700';
+
+    // Mark the dig panel as processing
+    const innerPanel = btn.closest('div[style*="border: 1.5px solid var(--assumption-border)"]')
+      || btn.closest('.lens-panel').querySelector('div[style*="assumption-border"]');
+
+    // Show "refining" status inside lens panel
+    const refiningEl = document.createElement('div');
+    refiningEl.style.cssText = 'margin-top:10px;padding:8px 12px;background:var(--claude-orange-light);border:1px solid var(--claude-orange-mid);border-radius:8px;font-size:11px;color:var(--claude-orange);font-weight:600;display:flex;align-items:center;gap:6px;animation:slideIn .3s ease';
+    refiningEl.innerHTML = '<span style="animation:pulse 1s infinite;display:inline-block">✳</span> Claude is generating your refined response...';
+    container.parentElement.appendChild(refiningEl);
+
+    const messages = document.getElementById('chatMessages');
+
+    setTimeout(() => {
+      refiningEl.remove();
+
+      // Get refined data
+      const scenarioData = refinedResponses[currentScenario] || {};
+      const refined = scenarioData[selectedOption];
+
+      // Mark lens panel as done
+      const lensPanel = btn.closest('.lens-panel');
+      if (lensPanel) {
+        const header = lensPanel.querySelector('.lens-header');
+        if (header) {
+          header.style.background = 'var(--success)';
+          header.style.borderColor = 'var(--success-border)';
+          const label = header.querySelector('.lens-header-left');
+          if (label) { label.innerHTML = '✅ Dig Deeper complete — refined response generated below'; label.style.color = 'var(--success-text)'; }
+        }
+        const actions = lensPanel.querySelector('.lens-actions');
+        if (actions) actions.innerHTML = '<div class="success-banner">✅ Context added — see refined response below</div>';
+      }
+
+      // Build refined Lens panel HTML
+      let refinedLensHTML = '';
+      if (refined && lensOn) {
+        const assHTML = (refined.lens.assumptions || []).map(a => `
+          <div class="lens-item assumption">
+            <span class="lens-icon">📌</span>
+            <div class="lens-text"><strong>Remaining assumption:</strong> ${a}</div>
+          </div>`).join('');
+        const uncHTML = (refined.lens.uncertain || []).map(u => `
+          <div class="lens-item uncertain">
+            <span class="lens-icon">⚠️</span>
+            <div class="lens-text"><strong>Still check:</strong> ${u}</div>
+          </div>`).join('');
+        const verHTML = (refined.lens.verify || []).map(v => `
+          <div class="lens-item verify">
+            <span class="lens-icon">🔍</span>
+            <div class="lens-text"><strong>Action needed:</strong> ${v}</div>
+          </div>`).join('');
+
+        const totalFlags = (refined.lens.assumptions||[]).length + (refined.lens.uncertain||[]).length + (refined.lens.verify||[]).length;
+        refinedLensHTML = `
+          <div class="lens-panel" style="border-color:var(--success-border);background:var(--success)">
+            <div class="lens-header" style="background:#C8E6C9;border-color:var(--success-border)" onclick="togglePanel(this)">
+              <div class="lens-header-left" style="color:var(--success-text)">
+                <span class="lens-asterisk">✅</span>
+                Claude Lens — Refined · ${totalFlags} flag${totalFlags!==1?'s':''} remaining (down from original)
+              </div>
+              <button class="lens-collapse-btn" style="color:var(--success-text)">▼ collapse</button>
+            </div>
+            <div class="lens-body" style="background:#fff">
+              ${assHTML || '<div style="font-size:11px;color:var(--success-text);padding:6px 10px;font-weight:600">✅ All major assumptions resolved</div>'}
+              ${uncHTML}
+              ${verHTML}
+              <div class="lens-actions">
+                <button class="lens-btn btn-accept" onclick="acceptOutput(this)">✓ Accept this refined output</button>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      const responseText = refined ? refined.response : `Based on your answer ("${selectedOption}"), here is your refined response tailored to your specific context. The assumptions have been resolved and the output is now more accurate for your use case.`;
+
+      // Add REFINED Claude message to chat
+      const refinedDiv = document.createElement('div');
+      refinedDiv.className = 'claude-msg';
+      refinedDiv.style.animation = 'slideIn .4s ease';
+      refinedDiv.innerHTML = `
+        <div class="claude-avatar" style="background:var(--success-text)">✅</div>
+        <div class="claude-content">
+          <div class="claude-name" style="color:var(--success-text);font-weight:700">Claude · Refined Response</div>
+          <div class="scenario-tag" style="background:var(--success);color:var(--success-text);border-color:var(--success-border)">
+            ✅ Refined based on: "${selectedOption}"
+          </div>
+          <div class="claude-bubble" style="border-color:var(--success-border);border-width:1.5px">
+            ${formatResponse(responseText)}
+          </div>
+          ${refinedLensHTML}
+        </div>`;
+
+      messages.appendChild(refinedDiv);
+      messages.scrollTop = messages.scrollHeight;
+
+      // Update calibration significantly
+      if (calOn) {
+        calScore = Math.min(calScore + 15, 95);
+        const bar = document.getElementById('calBar');
+        if (bar) bar.style.width = calScore + '%';
+      }
+    }, 1400);
+  }
+
+  function acceptAfterDig(btn) {
+    btn.closest('div').innerHTML = '<div class="success-banner">✅ Refined output accepted — calibration updated</div>';
+    if (calOn) {
+      calScore = Math.min(calScore + 5, 95);
+      const bar = document.getElementById('calBar');
+      if (bar) bar.style.width = calScore + '%';
+    }
+  }
+
+  function formatResponse(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/```(\w+)?\n?([\s\S]*?)```/g, '<pre style="background:var(--surface-2);padding:10px;border-radius:6px;font-family:JetBrains Mono,monospace;font-size:11px;margin:6px 0;overflow-x:auto">$2</pre>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>').replace(/$/, '</p>');
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Load career scenario on start
+  window.onload = () => {
+    setTimeout(() => {
+      document.getElementById('chatInput').value = scenarios.career.prompt;
+    }, 500);
+  };
+</script>
+</body>
+</html>
